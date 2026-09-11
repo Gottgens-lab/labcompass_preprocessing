@@ -1,0 +1,6 @@
+LPHO014/Plt3/filtered/F03 Well - F03 AutoSpectral.fcs
+LPHO014/Plt3/filtered/F04 Well - F04 AutoSpectral.fcs
+LPHO014/Plt3/filtered/F05 Well - F05 AutoSpectral.fcs
+LPHO014/Plt3/filtered/F06 Well - F06 AutoSpectral.fcs
+LPHO014/Plt3/filtered/F07 Well - F07 AutoSpectral.fcs
+LPHO014/Plt3/filtered/F08 Well - F08 AutoSpectral.fcs

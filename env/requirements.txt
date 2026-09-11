@@ -1,0 +1,41 @@
+# Exact versions from the environment that produced the published files.
+# Read from the `pip list` output stored in Loop0/000a_fcs_concat_exp_labelling.ipynb.
+#
+# UMAP and Leiden are only reproducible for a fixed random seed together with
+# fixed versions of umap-learn, pynndescent, numba and leidenalg.  Loosening any
+# of those four moves the embedding and renumbers the clusters.
+
+# flow cytometry
+pytometry==0.1.6
+readfcs==2.1.0
+FlowIO==1.4.0
+FlowUtils==1.2.2
+
+# single-cell data structures and analysis
+anndata==0.12.10
+scanpy==1.12
+h5py==3.15.1
+
+# numerical stack
+numpy==2.3.5
+pandas==2.3.3
+scipy==1.17.1
+scikit-learn==1.8.0
+numba==0.63.1
+llvmlite==0.46.0
+
+# embedding and clustering
+umap-learn==0.5.11
+pynndescent==0.5.13
+leidenalg==0.11.0
+igraph==1.0.0
+
+# plotting
+matplotlib==3.10.8
+seaborn==0.13.2
+datashader==0.18.2
+
+# notebooks, including the interactive backend that the gating notebook needs
+jupyterlab==4.5.5
+ipywidgets==8.1.8
+ipympl==0.10.0

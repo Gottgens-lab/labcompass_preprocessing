@@ -1,0 +1,28 @@
+# Intermediate and final data, tens of gigabytes each.  Rebuild them by running
+# the notebooks in order; each loop's README says which stage writes which file.
+*.h5ad
+*.fcs
+
+# scanpy writes here
+notebooks/*/figures/
+notebooks/*/write/
+
+# notebook and python scratch
+.ipynb_checkpoints/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+
+# editors and operating systems
+.DS_Store
+.vscode/
+.idea/
+
+# tooling scratch
+.claude/
+
+# local scratch note pointing at the original notebook folder
+folders.md
