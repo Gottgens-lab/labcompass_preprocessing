@@ -11,6 +11,13 @@ readfcs==2.1.0
 FlowIO==1.4.0
 FlowUtils==1.2.2
 
+# pytometry imports these at package import time, through its FlowSOM clustering
+# module, even though this pipeline never calls FlowSOM.  Leaving any of them out
+# makes `import pytometry` fail with a ModuleNotFoundError.
+consensusclustering==0.2.4
+MiniSom==2.3.6
+kneed==0.8.5
+
 # single-cell data structures and analysis
 anndata==0.12.10
 scanpy==1.12
@@ -30,12 +37,13 @@ pynndescent==0.5.13
 leidenalg==0.11.0
 igraph==1.0.0
 
-# plotting
+# plotting.  datashader backs pytometry's density scatter, and pulls in xarray.
 matplotlib==3.10.8
 seaborn==0.13.2
 datashader==0.18.2
+xarray==2026.2.0
 
-# notebooks, including the interactive backend that the gating notebook needs
+# notebooks, including the interactive backend the gating notebook needs
 jupyterlab==4.5.5
 ipywidgets==8.1.8
 ipympl==0.10.0

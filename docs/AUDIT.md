@@ -16,6 +16,12 @@ produced a wrong result if the notebooks had been rerun from a clean kernel, and
 they are listed under "Defects that would fire on a rerun". The rest are
 robustness and clarity problems.
 
+The first of those five was checked against the file on disk rather than only
+argued from the code. `BloodPlus_Logicle_pm_5M.h5ad` holds 4,903,441 cells.
+That count shows the order in which the cells actually ran. The cell that wrote
+the file must have run before the cell that shrinks the object to 500 thousand. The published file is therefore right, and the order of
+the cells in the notebook is what is wrong.
+
 The largest single problem is not a bug but a habit: the notebooks were run out
 of order. 11 of the 32 notebooks store execution counts that do not increase
 down the file, and 8 store the same execution count in more than one cell. A
@@ -113,9 +119,10 @@ In `Loop0/001b_fcs_concat_FMOs.ipynb`, cell 7 calls `is_int(x)` and
 Neither function is defined anywhere in the project, which was checked by
 searching every notebook. The calls would raise `NameError`.
 
-They did not fire because the control files have no `meta_` keys, so the list
-`positions` is empty and the loop body never runs. The cell completed with
-execution count 6.
+They did not fire. A fluorescence-minus-one control is a sample stained with
+every antibody of the panel except one, and those control files carry no
+`meta_` keys, so the list `positions` is empty and the body of the loop never
+runs. The cell completed, with execution count 6.
 
 Fixed by removing the block. The control wells carry no experimental metadata,
 so nothing was lost.
@@ -182,7 +189,7 @@ Four functions were never called from any notebook: `sweep_umap`,
 notebook nor installed in the analysis environment, so the function could not
 run as written.
 
-Removed from the package. If they are wanted back, they are in the original
+Removed. If they are wanted back, they are in the original
 notebooks under the same names.
 
 ### 10. `downsample` reseeds the global random generator
@@ -210,7 +217,8 @@ comparing a string read from a CSV against the index of a table read with
 failed and every well would have been skipped without an error. It worked
 because the index happened to be read as text.
 
-Fixed: `load_metadata_table` forces the index to `str`.
+Fixed: every stage 00 now forces the index to `str` right after reading the
+table, on the line below the `read_csv` call, where a reader can see it.
 
 ### 12. A well that is skipped leaves no trace
 
@@ -339,18 +347,162 @@ can be restored.
 
 ## How the rewrite was checked
 
-- Every code cell of all 32 clean notebooks parses as Python.
-- No clean notebook stores an output or an execution count.
-- Every name that a clean notebook imports from `labcompass` exists in the
-  package. Checked by importing the package and looking each name up.
-- The library has 20 tests in `tests/`, all passing. They cover the gate file
-  round trip for both storage shapes that numpy produces, gating on an `.obs`
-  column and on a marker channel, the `and` and `or` combination rules,
-  downsampling for cap, reproducibility and small groups, the alignment of
-  `.obs` with `.X` after cleaning, the zero-to-one scaling, the rotation of the
-  embedding, and the error paths.
+### It was run against the real data and compared to the original output
 
-What was **not** checked: no clean notebook has been run end to end on the real
-data. Doing so needs the analysis environment, which is not installed here, and
-the logicle step alone takes several hours per loop. The clean notebooks are
-therefore written and reviewed, not executed.
+Three loops were rebuilt from their raw `.fcs` wells with the clean notebooks,
+and every file compared against the one the original notebook produced. The
+comparison covers cell count, channel count, channel names, cell names, `.X`
+value by value, every shared `.obs` column, every layer, `.raw`, and every
+embedding in `.obsm`.
+
+| loop | stage | file | cells | result |
+|---|---|---|---|---|
+| Loop4p5 | 00 | `Loop4p5.h5ad` | 728,500 | identical |
+| Loop4p5 | 00 | `Loop4p5_500k.h5ad` | 500,000 | identical |
+| Loop4p5 | 02 | `Loop4p5_Gated.h5ad` | 642,515 | identical |
+| Loop4p5 | 02 | `Loop4p5_Gated_500k.h5ad` | 500,000 | identical |
+| Loop4p5 | 04 | `Loop4p5_Raw_Pos.h5ad` | 642,482 | identical, both layers |
+| Loop4p5 | 04 | `Loop4p5_logicle.h5ad` | 642,482 | identical, both layers and `.raw` |
+| Loop4p5 | 04 | `Loop4p5_logicle_500k.h5ad` | 500,000 | identical, both layers and `.raw` |
+| Loop4p5 | 04 | `Loop4p5_UMAP.h5ad` | 500,000 | identical except the embedding, see below |
+| Loop4 | 00 | `Loop4.h5ad` | 1,569,501 | identical |
+| Loop4 | 00 | `Loop4_500k.h5ad` | 500,000 | identical |
+| Loop4 | 02 | `Loop4_Gated.h5ad` | 1,234,031 | identical |
+| Loop4 | 02 | `Loop4_Gated_500k.h5ad` | 500,000 | identical |
+| Loop0 | 01b | `Loop0_FMOs.h5ad` | 5,146,101 | identical |
+| Loop0 | 02b | `Loop0_FMOs_Gated.h5ad` | 3,931,358 | identical |
+
+"Identical" means `numpy.array_equal` on the intensity matrix, not equal within
+a tolerance. Every intensity the pipeline computes agrees exactly: `.X`, both
+layers, `.raw`, and all 46 `.obs` columns, in all 14 files.
+
+The one thing that does not agree exactly is the embedding stored in the last
+file. `obsm["X_pca"]` agrees to a median absolute difference of 2.1e-06, which
+is float32 rounding on values of order 1. `obsm["X_umap"]` differs by a median
+of 0.122 UMAP units and at most 15.4.
+
+That difference is not non-determinism, and it is not in this repository's code.
+Running the same embedding twice on the same machine, with the same versions and
+the same random state, gives a result identical to the last bit. Pinning
+`pynndescent` to 0.5.13 and `numba` to 0.63.1, the versions the original used,
+changed nothing: the difference against the published embedding stayed at a
+median of 0.122. What remains different is `numpy`, at 1.26.4 here against 2.3.5
+in the original, and the machine, because UMAP optimises its layout with a
+parallel stochastic gradient descent whose update order depends on the thread
+count. This node gave `numba` 32 threads.
+
+So a UMAP embedding is reproducible on one machine with one pinned environment,
+and is not portable between machines. Everything upstream of it is portable and
+was shown to be so.
+
+`Loop4p5` was chosen because it is the smallest loop, at six wells and 83 MB of
+raw data, and because it exercises every stage: the group-counting well
+mapping, the bead and live-cell gates applied per well, the three-gate strategy,
+the percentile and zero filters, the `positives` layer, the logicle
+transformation over all 20 channels, downsampling and the embedding.
+
+`Loop4` was added as a second loop through stages 00 and 02, to show that the
+match is not specific to one loop's configuration. Its wells map to experiments
+by the same group-counting rule, and its gated file agrees on all 1,234,031
+cells.
+
+The two `Loop0` stages were added because they are the only ones that read the
+fluorescence-minus-one control plate, and because stage 01b is where two
+undefined functions were removed. That its output is identical shows the removal
+changed nothing.
+
+One caveat. The environment used for the rerun matches the pinned versions for
+`anndata`, `scanpy`, `pandas`, `scipy`, `matplotlib`, `seaborn`, `umap-learn`,
+`FlowIO`, `FlowUtils`, `readfcs` and `pytometry`, but has `numpy` 1.26.4 where
+the original had 2.3.5. The outputs matched anyway, which also shows that
+`downsample` selects the same cells under both, since it uses the legacy NumPy
+generator whose stream is frozen across versions.
+
+### Two defects were found by running it, both mine
+
+**The dtype was forced.** `clean_intensities` cast the intensities to `float64`.
+The original kept them as `float32` through the percentile and zero filters and
+only reached `float64` where the per-antibody cutoffs were subtracted, because
+those cutoffs are Python floats. The published files carry exactly that mix:
+`.X` and the `raw` layer as `float32`, the `positives` layer as `float64`.
+
+Forcing the dtype changed every stored value and made `Loop4p5_Raw_Pos.h5ad` 26
+per cent larger than the original. The cast was removed, the file then matched
+bit for bit, and a test now fixes the dtype behaviour in place, so that this
+defect cannot come back unnoticed.
+
+**`.raw` was written one step too late.** The clean stage 04 set `.raw` to the
+`positives` view after writing `<Loop>_logicle.h5ad` rather than before, so that
+file came out without `.raw` where the original has it. Everything else in the
+file matched. The order was corrected to match the original.
+
+Neither defect would have been caught by reading the code. Both came out of the
+comparison.
+
+### A third gap appeared at import time
+
+`pytometry` imports its FlowSOM clustering module when the package loads, which
+pulls in `consensusclustering`, `MiniSom` and `kneed`, even though this pipeline
+never calls FlowSOM. Those three were missing from `env/requirements.txt`, so a
+fresh environment built from it could not `import pytometry`. They are listed
+now, with a comment saying why.
+
+### Static checks over all 32 notebooks
+
+- Every code cell parses as Python.
+- No notebook stores an output or an execution count.
+- No statement is unreachable, which catches a block indented one level too deep
+  after a `continue`.
+- No name is used before it is defined.
+- No cell reads a file that a later cell in the same notebook writes.
+- Every name imported from `labcompass` exists in `notebooks/labcompass.py`.
+- Every well named in every `wells.txt` exists on disk: 100 of 100 for `Fig6`,
+  52 of 52 for `Loop2`, 42 of 42 for `Loop3`, 21 of 21 for `Loop2p5`, and 6 of 6
+  for `Loop4` and `Loop4p5`.
+
+### Tests
+
+22 tests in `tests/`, all passing under `pytest`. What they cover:
+
+- The gate file round trip, for both storage shapes that numpy produces. A list
+  of equal-length polygons is stored as one regular three-dimensional array, and
+  a list of unequal-length polygons as an array of objects.
+- Gating on an `.obs` column and on a marker channel, the `and` and `or`
+  combination rules, an empty gate file, and a gate naming an axis that does not
+  exist.
+- Downsampling: the per-group limit, that two calls with the same seed pick the
+  same cells, that a group smaller than the limit is kept whole, and that
+  duplicate cell names do not pull in extra rows.
+- Cleaning: that `.obs` stays aligned with `.X`, that the percentile filter
+  drops the upper tail, the zero-to-one scaling, the dtype behaviour described
+  above, and that subtracting then adding the cutoffs is a round trip.
+- Embedding: that `compute_umap` leaves `.X` untouched, and that rotation
+  preserves every pairwise distance.
+- The plotting helpers return a figure, and reject an unknown marker.
+
+### What was not checked
+
+`Loop4p5` was rerun end to end, `Loop4` through stages 00 and 02, and `Loop0`
+stages 01b and 02b. The other six loops have not been run. They share the same
+notebook code, which is generated from one template, and differ only in their
+configuration cell, so the risk is in the configuration rather than in the code.
+
+The main risk in that configuration was checked separately for all six loops
+that list their wells by hand. Each new pair of plate name and plate row takes
+the next entry of `EXPERIMENTS`, so the number of such pairs in `wells.txt` has
+to equal the length of `EXPERIMENTS`. Counting the pairs from the well paths
+gives 9 for `Loop2`, 4 for `Loop2p5`, 7 for `Loop3`, 1 for `Loop4`, 1 for
+`Loop4p5` and 20 for `Fig6`, each matching that loop's list exactly.
+
+`Loop0` stage 03, which measures the background cutoffs, was not rerun against
+its own output, because its inputs are the 9 GB gated screen file and rebuilding
+that means running all of `Loop0`. Two weaker checks stand in its place. Its
+measurement loop was executed on synthetic control data, where it produced four
+lists of the right length satisfying the documented formulas. The committed
+`marker_cutoff.pkl` and `logicle_parameters.json` were checked arithmetically,
+confirming that `w` equals `log10(cutoff)`, `a` equals `-log10(cutoff)` and `m`
+equals `log10(t)` for all 20 channels.
+
+`Loop0` stage 01a and `Loop1` stage 01a cannot be tested automatically. They wait
+for a person to drag polygon vertices. The gates they produce are committed, and
+stage 02 reproduces the published gating from those files without them.

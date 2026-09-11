@@ -11,11 +11,19 @@ one *experiment*; each round of the screen is one *loop*.
 ## What is in here
 
 ```
-src/labcompass/       the shared library, imported by every notebook
-notebooks/<Loop>/     one folder per loop: its notebooks, its lookup tables, its README
-env/                  the pinned environment that produced the published files
-docs/AUDIT.md         what was found in the original notebooks and what was changed
+notebooks/labcompass.py   the few helpers that are too long to repeat in every notebook
+notebooks/<Loop>/         one folder per loop: its notebooks, its lookup tables, its README
+env/                      the pinned environment that produced the published files
+docs/AUDIT.md             what was found in the original notebooks and what was changed
+tests/                    tests for notebooks/labcompass.py
 ```
+
+There is nothing to install.  `labcompass.py` sits beside the loop folders and a
+notebook reaches it with `sys.path.append("..")`.  It holds only the pieces that
+are long and shared: the interactive gating class, gate application,
+downsampling, the cleaning steps, the logicle loop, the embedding and the four
+plotting functions.  Everything else a stage does is written out in the notebook
+cell that does it, so you can read a stage without opening a second file.
 
 Each loop folder has its own `README.md` giving that loop's file-dependency
 graph: which notebook reads which file and which notebook writes it.  Read that
@@ -35,8 +43,10 @@ first when you want to rerun a loop.
 | `Loop4p5` | LPHO014, fifth block | 260 | `LPHO014` |
 | `Fig6` | LPHO015, the experiments behind Figure 6 | 261 to 280 | `LPHO015` |
 
-`Loop0` is the reference loop.  It is the only one that draws the gates by hand
-and the only one that builds the fluorescence-minus-one calibration.  Every
+`Loop0` is the reference loop.  It is the only one that builds the
+fluorescence-minus-one calibration, and with `Loop1` one of only two that draw
+gates by hand.  Only `Loop0` and `Fig6` go on to cluster; the other seven stop
+after the UMAP.  Every
 other loop carries a copy of `marker_cutoff.pkl` and `logicle_parameters.json`
 and uses them unchanged, so the intensity scale is the same across loops.
 
@@ -52,7 +62,7 @@ Five stages.  Not every loop runs every stage; the loop's README says which.
 | 02 | `002a_gating_apply.ipynb` | apply the gates to every cell |
 | 02b | `002b_gating_apply_FMOs.ipynb` | apply the same gates to the controls (`Loop0` only) |
 | 03 | `003_FMO_maker.ipynb` | measure the background per antibody, derive the logicle parameters (`Loop0` only) |
-| 04 | `004_transf_singlecell.ipynb` | clean, transform, downsample, embed, cluster |
+| 04 | `004_transf_singlecell.ipynb` | clean, transform, downsample, embed, and cluster in `Loop0` and `Fig6` |
 
 ### What each stage means
 
@@ -87,7 +97,6 @@ because the logicle scale has no fixed zero point.  The marker panels in stage
 ```bash
 conda env create -f env/environment.yml
 conda activate labcompass
-pip install -e .
 jupyter lab
 ```
 
@@ -112,7 +121,7 @@ Every notebook reads that variable and falls back to the path above.
 
 ### What is committed and what is not
 
-Committed: the notebooks, the shared library, the per-experiment condition
+Committed: the notebooks, `labcompass.py`, the per-experiment condition
 tables (`metadata*.csv`), the well lists (`wells.txt`), the gate polygons
 (`gates.npz`, `live.npz`, `counts.npz`) and the calibration files
 (`marker_cutoff.pkl`, `logicle_parameters.json`).  These total under 400 KB and
@@ -123,6 +132,21 @@ tens of gigabytes.  `.gitignore` excludes them.
 
 ## Reproducibility
 
+This was checked against the original outputs, not only asserted.  Three loops
+were rebuilt from their raw `.fcs` wells and every file compared with the one the
+original notebooks produced.  All 14 files agree exactly on every intensity:
+`.X`, both layers, `.raw`, and all 46 `.obs` columns.  See `docs/AUDIT.md` for
+the file-by-file table.
+
+The one thing that does not carry across machines is the UMAP embedding.  It is
+reproducible on a given machine with the pinned environment, and two runs there
+agree to the last bit, but it differs from the published embedding by a median of
+0.122 UMAP units.  UMAP optimises its layout with a parallel stochastic gradient
+descent whose update order depends on the thread count, so the coordinates depend
+on the machine as well as on the seed.  Everything upstream of the embedding is
+portable.  If you need the published coordinates, read them from the published
+`.h5ad` rather than recomputing them.
+
 Every notebook runs top to bottom.  No cell reads a file that a later cell
 writes, so `Restart Kernel and Run All Cells` rebuilds that notebook's outputs
 from its inputs.  The one exception is `001a_gating_maker.ipynb`, which opens an
@@ -131,8 +155,12 @@ the gates it produces are committed.
 
 Three things fix the numbers:
 
-- The random seed for downsampling is 0, and the seed for the embedding and the
-  clustering is 51.  Both are set at the top of the notebook that uses them.
+- Three separate seeds, each set at the top of the notebook that uses it.
+  Downsampling uses 0.  The principal components and UMAP use random state 0,
+  which is the scanpy default and is what the published embeddings were made
+  with.  Leiden uses 51.  In the original notebooks a single variable called
+  `seed` was set to 51 and reached Leiden but never reached UMAP, which made it
+  look as though the embeddings used 51 when they did not.
 - The gate polygons and the calibration files are committed, so the gating and
   the intensity scale do not have to be redrawn or remeasured.
 - The package versions are pinned in `env/requirements.txt`.  UMAP and Leiden
@@ -141,8 +169,9 @@ Three things fix the numbers:
   four moves the embedding and renumbers the clusters, which in turn invalidates
   any mapping from cluster number to cell type.
 
-The long step is the logicle transformation in stage 04, at roughly ten minutes
-per channel for 20 channels on a dataset of tens of millions of cells.
+The long step is the logicle transformation in stage 04.  On `Loop4p5`, at
+642,482 cells, it takes about 10 seconds per channel for 20 channels.  On
+`Loop0`, at 52 million cells, it takes about 10 minutes per channel.
 
 ## Relation to the original notebooks
 

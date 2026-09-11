@@ -74,10 +74,12 @@ and be aware that redrawing them changes every downstream file.
 ## A note on file names
 
 The original notebooks wrote this loop's files with the prefix
-`BloodPlus_Loop2`, not `Loop1`.  For Loop1 that prefix names a
-different loop, which was a source of confusion, so the clean notebooks use
-`Loop1` throughout.  If you have files from the original run, the mapping is
-`BloodPlus_Loop2*.h5ad` to `Loop1*.h5ad`.  The contents are the same.
+`BloodPlus_Loop2`, not `Loop1`.  That prefix carries another loop's number, because the folder the
+notebooks ran in was numbered differently from the folder they were
+handed over in.  Reading `BloodPlus_Loop2*.h5ad` as "the files of
+that other loop" would be wrong.  The clean notebooks use `Loop1`
+throughout.  If you have files from the original run, the mapping is
+`BloodPlus_Loop2*.h5ad` to `Loop1*.h5ad`, and the contents are the same.
 
 ## Parameters
 

@@ -62,10 +62,9 @@ starting Jupyter rather than editing the notebook.
 ## A note on file names
 
 The original notebooks wrote this loop's files with the prefix
-`results`, not `Fig6`.  For Fig6 that prefix names a
-different loop, which was a source of confusion, so the clean notebooks use
-`Fig6` throughout.  If you have files from the original run, the mapping is
-`results*.h5ad` to `Fig6*.h5ad`.  The contents are the same.
+`results`, not `Fig6`.  That prefix says nothing about which loop the file belongs to.  The clean notebooks use `Fig6`
+throughout.  If you have files from the original run, the mapping is
+`results*.h5ad` to `Fig6*.h5ad`, and the contents are the same.
 
 ## Parameters
 

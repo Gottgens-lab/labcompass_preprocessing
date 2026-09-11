@@ -61,10 +61,12 @@ starting Jupyter rather than editing the notebook.
 ## A note on file names
 
 The original notebooks wrote this loop's files with the prefix
-`BloodPlus_Loop3`, not `Loop1p5`.  For Loop1p5 that prefix names a
-different loop, which was a source of confusion, so the clean notebooks use
-`Loop1p5` throughout.  If you have files from the original run, the mapping is
-`BloodPlus_Loop3*.h5ad` to `Loop1p5*.h5ad`.  The contents are the same.
+`BloodPlus_Loop3`, not `Loop1p5`.  That prefix carries another loop's number, because the folder the
+notebooks ran in was numbered differently from the folder they were
+handed over in.  Reading `BloodPlus_Loop3*.h5ad` as "the files of
+that other loop" would be wrong.  The clean notebooks use `Loop1p5`
+throughout.  If you have files from the original run, the mapping is
+`BloodPlus_Loop3*.h5ad` to `Loop1p5*.h5ad`, and the contents are the same.
 
 ## Parameters
 
